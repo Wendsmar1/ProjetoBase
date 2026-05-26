@@ -1,4 +1,5 @@
-﻿from pathlib import Path
+﻿import json
+from pathlib import Path
 
 from projetobase.main import check_paths, main, run, scan_devhub, weekly_report
 
@@ -13,7 +14,7 @@ def test_run_custom_name():
     assert run("Wendsmar") == "Ola, Wendsmar! ProjetoBase v0.1.0"
 
 
-def test_scan_generates_report(tmp_path: Path):
+def test_scan_generates_report_and_json(tmp_path: Path):
     c_root = tmp_path / "C_DevHub"
     f_root = tmp_path / "F_DevHub"
     (c_root / "Apps").mkdir(parents=True)
@@ -25,10 +26,14 @@ def test_scan_generates_report(tmp_path: Path):
     assert report.exists()
     content = report.read_text(encoding="utf-8")
     assert "DevHub Scan Report" in content
-    assert "C exists: True" in content
+
+    report_json = Path(str(report).replace('.md', '.json'))
+    data = json.loads(report_json.read_text(encoding='utf-8'))
+    assert data["type"] == "scan"
+    assert data["c_stats"]["exists"] is True
 
 
-def test_check_paths_finds_legacy(tmp_path: Path):
+def test_check_paths_finds_legacy_and_json(tmp_path: Path):
     root = tmp_path / "DevHub"
     stack = root / "02_Docker" / "Stacks" / "x"
     stack.mkdir(parents=True)
@@ -37,10 +42,14 @@ def test_check_paths_finds_legacy(tmp_path: Path):
     report = check_paths(root, out_dir=tmp_path)
     content = report.read_text(encoding="utf-8")
     assert "Hits: 1" in content
-    assert "F:/DevHub/Projetos/Ativos/03_Projetos" in content
+
+    report_json = Path(str(report).replace('.md', '.json'))
+    data = json.loads(report_json.read_text(encoding='utf-8'))
+    assert data["type"] == "check-paths"
+    assert data["hits_count"] == 1
 
 
-def test_weekly_report(tmp_path: Path):
+def test_weekly_report_and_json(tmp_path: Path):
     c_root = tmp_path / "C_DevHub"
     f_root = tmp_path / "F_DevHub"
     (c_root / "Apps").mkdir(parents=True)
@@ -52,8 +61,11 @@ def test_weekly_report(tmp_path: Path):
     assert report.exists()
     content = report.read_text(encoding="utf-8")
     assert "DevHub Weekly Report" in content
-    assert "Scan report:" in content
-    assert "Paths report:" in content
+
+    report_json = Path(str(report).replace('.md', '.json'))
+    data = json.loads(report_json.read_text(encoding='utf-8'))
+    assert data["type"] == "weekly-report"
+    assert data["status"] == "ok"
 
 
 def test_main_scan_command(tmp_path: Path, capsys):

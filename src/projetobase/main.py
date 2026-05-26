@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import argparse
+import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -40,8 +41,11 @@ def _find_duplicates(root_a: Path, root_b: Path, depth: int = 2) -> list[str]:
 
     a = collect_names(root_a)
     b = collect_names(root_b)
-    shared = sorted(n for n in a if n in b)
-    return shared
+    return sorted(n for n in a if n in b)
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def scan_devhub(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
@@ -55,6 +59,7 @@ def scan_devhub(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     report = out_dir / f"devhub_scan_{ts}.md"
+    report_json = out_dir / f"devhub_scan_{ts}.json"
 
     lines = [
         "# DevHub Scan Report",
@@ -74,18 +79,36 @@ def scan_devhub(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub
         "## Alerts",
     ]
 
+    alerts: list[str] = []
     if not c_stats["exists"]:
-        lines.append("- C:/DevHub nao encontrado")
+        alerts.append("C:/DevHub nao encontrado")
     if not f_stats["exists"]:
-        lines.append("- F:/DevHub nao encontrado")
+        alerts.append("F:/DevHub nao encontrado")
     if not shared_names:
-        lines.append("- Sem nomes de pastas duplicados nos primeiros niveis")
+        alerts.append("Sem nomes de pastas duplicados nos primeiros niveis")
     else:
-        lines.append("- Pastas com nomes repetidos entre C e F (ate nivel 2):")
-        for name in shared_names[:30]:
-            lines.append(f"  - {name}")
+        alerts.append("Pastas com nomes repetidos entre C e F (ate nivel 2)")
+
+    for a in alerts:
+        lines.append(f"- {a}")
+    for name in shared_names[:30]:
+        lines.append(f"  - {name}")
 
     report.write_text("\n".join(lines), encoding="utf-8")
+    _write_json(
+        report_json,
+        {
+            "type": "scan",
+            "timestamp": ts,
+            "c_root": str(c_root),
+            "f_root": str(f_root),
+            "c_stats": c_stats,
+            "f_stats": f_stats,
+            "shared_names": shared_names,
+            "alerts": alerts,
+            "report_md": str(report),
+        },
+    )
     return report
 
 
@@ -131,6 +154,8 @@ def check_paths(
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     report = out_dir / f"devhub_check_paths_{ts}.md"
+    report_json = out_dir / f"devhub_check_paths_{ts}.json"
+
     lines = [
         "# DevHub Legacy Paths Report",
         "",
@@ -149,6 +174,25 @@ def check_paths(
             lines.append(f"  - sugestao: {suggestion}")
 
     report.write_text("\n".join(lines), encoding="utf-8")
+    _write_json(
+        report_json,
+        {
+            "type": "check-paths",
+            "timestamp": ts,
+            "root": str(root),
+            "hits": [
+                {
+                    "file": str(file),
+                    "line": line_no,
+                    "current": line,
+                    "suggestion": suggestion,
+                }
+                for file, line_no, line, suggestion in hits
+            ],
+            "hits_count": len(hits),
+            "report_md": str(report),
+        },
+    )
     return report
 
 
@@ -162,6 +206,7 @@ def weekly_report(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevH
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     report = out_dir / f"devhub_weekly_report_{ts}.md"
+    report_json = out_dir / f"devhub_weekly_report_{ts}.json"
     lines = [
         "# DevHub Weekly Report",
         "",
@@ -177,6 +222,19 @@ def weekly_report(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevH
         "- Consolidado gerado com sucesso.",
     ]
     report.write_text("\n".join(lines), encoding="utf-8")
+    _write_json(
+        report_json,
+        {
+            "type": "weekly-report",
+            "timestamp": ts,
+            "c_root": str(c_root),
+            "f_root": str(f_root),
+            "scan_report_md": str(scan_report),
+            "paths_report_md": str(paths_report),
+            "weekly_report_md": str(report),
+            "status": "ok",
+        },
+    )
     return report
 
 

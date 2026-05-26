@@ -17,3 +17,8 @@ Projeto base em Python com estrutura pronta para evoluir e publicar no GitHub.
 6. Checar paths legados: `$env:PYTHONPATH="src"; python -m projetobase.main check-paths --root F:/DevHub`
 7. Relatorio semanal consolidado: `$env:PYTHONPATH="src"; python -m projetobase.main weekly-report`
 8. Rodar testes: `pytest -q`
+
+## Saidas
+Cada comando de relatorio gera dois arquivos:
+- `.md` para leitura humana
+- `.json` para automacao

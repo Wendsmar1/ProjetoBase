@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import shutil
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +18,6 @@ def run(name: str = "mundo") -> str:
 def _scan_root(root: Path) -> dict[str, int | bool]:
     if not root.exists():
         return {"exists": False, "dirs": 0, "files": 0}
-
     dirs = 0
     files = 0
     for p in root.rglob("*"):
@@ -25,7 +25,6 @@ def _scan_root(root: Path) -> dict[str, int | bool]:
             dirs += 1
         elif p.is_file():
             files += 1
-
     return {"exists": True, "dirs": dirs, "files": files}
 
 
@@ -48,159 +47,7 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def scan_devhub(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
-    c_stats = _scan_root(c_root)
-    f_stats = _scan_root(f_root)
-    shared_names = _find_duplicates(c_root, f_root)
-
-    if out_dir is None:
-        out_dir = f_root / "05_Logs"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report = out_dir / f"devhub_scan_{ts}.md"
-    report_json = out_dir / f"devhub_scan_{ts}.json"
-
-    lines = [
-        "# DevHub Scan Report",
-        "",
-        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- C root: {c_root}",
-        f"- F root: {f_root}",
-        "",
-        "## Summary",
-        f"- C exists: {c_stats['exists']}",
-        f"- C dirs: {c_stats['dirs']}",
-        f"- C files: {c_stats['files']}",
-        f"- F exists: {f_stats['exists']}",
-        f"- F dirs: {f_stats['dirs']}",
-        f"- F files: {f_stats['files']}",
-        "",
-        "## Alerts",
-    ]
-
-    alerts: list[str] = []
-    if not c_stats["exists"]:
-        alerts.append("C:/DevHub nao encontrado")
-    if not f_stats["exists"]:
-        alerts.append("F:/DevHub nao encontrado")
-    if not shared_names:
-        alerts.append("Sem nomes de pastas duplicados nos primeiros niveis")
-    else:
-        alerts.append("Pastas com nomes repetidos entre C e F (ate nivel 2)")
-
-    for a in alerts:
-        lines.append(f"- {a}")
-    for name in shared_names[:30]:
-        lines.append(f"  - {name}")
-
-    report.write_text("\n".join(lines), encoding="utf-8")
-    _write_json(
-        report_json,
-        {
-            "type": "scan",
-            "timestamp": ts,
-            "c_root": str(c_root),
-            "f_root": str(f_root),
-            "c_stats": c_stats,
-            "f_stats": f_stats,
-            "shared_names": shared_names,
-            "alerts": alerts,
-            "report_md": str(report),
-        },
-    )
-    return report
-
-
-def check_paths(
-    root: Path = Path("F:/DevHub"),
-    out_dir: Path | None = None,
-    legacy_patterns: Iterable[str] | None = None,
-) -> Path:
-    if legacy_patterns is None:
-        legacy_patterns = (
-            "F:/03_Projetos",
-            "F:\\03_Projetos",
-            "C:/docker_pre_devhub",
-            "C:\\docker_pre_devhub",
-        )
-
-    include_names = {
-        "docker-compose.yml",
-        "docker-compose.yaml",
-        "compose.yml",
-        "compose.yaml",
-        ".env",
-    }
-
-    hits: list[tuple[Path, int, str, str]] = []
-    if root.exists():
-        for file in root.rglob("*"):
-            if not file.is_file() or file.name not in include_names:
-                continue
-            try:
-                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-            except OSError:
-                continue
-            for line_no, line in enumerate(content, start=1):
-                for pattern in legacy_patterns:
-                    if pattern in line:
-                        suggestion = line.replace(pattern, "F:/DevHub/Projetos/Ativos/03_Projetos")
-                        hits.append((file, line_no, line.strip(), suggestion.strip()))
-
-    if out_dir is None:
-        out_dir = root / "05_Logs"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report = out_dir / f"devhub_check_paths_{ts}.md"
-    report_json = out_dir / f"devhub_check_paths_{ts}.json"
-
-    lines = [
-        "# DevHub Legacy Paths Report",
-        "",
-        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- Root: {root}",
-        f"- Hits: {len(hits)}",
-        "",
-        "## Findings",
-    ]
-    if not hits:
-        lines.append("- Nenhum path legado encontrado.")
-    else:
-        for file, line_no, line, suggestion in hits:
-            lines.append(f"- {file}:{line_no}")
-            lines.append(f"  - atual: {line}")
-            lines.append(f"  - sugestao: {suggestion}")
-
-    report.write_text("\n".join(lines), encoding="utf-8")
-    _write_json(
-        report_json,
-        {
-            "type": "check-paths",
-            "timestamp": ts,
-            "root": str(root),
-            "hits": [
-                {
-                    "file": str(file),
-                    "line": line_no,
-                    "current": line,
-                    "suggestion": suggestion,
-                }
-                for file, line_no, line, suggestion in hits
-            ],
-            "hits_count": len(hits),
-            "report_md": str(report),
-        },
-    )
-    return report
-
-
-def cleanup_plan(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
-    if out_dir is None:
-        out_dir = f_root / "05_Logs"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
+def _collect_cleanup_candidates(c_root: Path, f_root: Path) -> list[dict[str, str | int]]:
     roots = [c_root, f_root]
     candidates: list[dict[str, str | int]] = []
     dir_rules = {
@@ -222,80 +69,168 @@ def cleanup_plan(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHu
         for p in root.rglob("*"):
             if p.is_dir() and p.name in dir_rules:
                 risk, reason = dir_rules[p.name]
-                candidates.append(
-                    {
-                        "path": str(p),
-                        "kind": "dir",
-                        "risk": risk,
-                        "reason": reason,
-                        "suggested_action": "review_then_remove",
-                    }
-                )
+                candidates.append({"path": str(p), "kind": "dir", "risk": risk, "reason": reason, "suggested_action": "review_then_remove"})
             elif p.is_file():
                 if p.name.endswith("~"):
-                    candidates.append(
-                        {
-                            "path": str(p),
-                            "kind": "file",
-                            "risk": "baixo",
-                            "reason": "Arquivo temporario de editor",
-                            "suggested_action": "review_then_remove",
-                        }
-                    )
+                    candidates.append({"path": str(p), "kind": "file", "risk": "baixo", "reason": "Arquivo temporario de editor", "suggested_action": "review_then_remove"})
                     continue
                 for suf, (risk, reason) in file_suffix_rules.items():
                     if p.suffix.lower() == suf:
-                        candidates.append(
-                            {
-                                "path": str(p),
-                                "kind": "file",
-                                "risk": risk,
-                                "reason": reason,
-                                "suggested_action": "review_then_remove",
-                            }
-                        )
+                        candidates.append({"path": str(p), "kind": "file", "risk": risk, "reason": reason, "suggested_action": "review_then_remove"})
                         break
+    return candidates
 
+
+def scan_devhub(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
+    c_stats = _scan_root(c_root)
+    f_stats = _scan_root(f_root)
+    shared_names = _find_duplicates(c_root, f_root)
+    if out_dir is None:
+        out_dir = f_root / "05_Logs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report = out_dir / f"devhub_scan_{ts}.md"
+    report_json = out_dir / f"devhub_scan_{ts}.json"
+    alerts: list[str] = []
+    if not c_stats["exists"]:
+        alerts.append("C:/DevHub nao encontrado")
+    if not f_stats["exists"]:
+        alerts.append("F:/DevHub nao encontrado")
+    if not shared_names:
+        alerts.append("Sem nomes de pastas duplicados nos primeiros niveis")
+    else:
+        alerts.append("Pastas com nomes repetidos entre C e F (ate nivel 2)")
+    lines = [
+        "# DevHub Scan Report", "", f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"- C root: {c_root}", f"- F root: {f_root}", "",
+        "## Summary", f"- C exists: {c_stats['exists']}", f"- C dirs: {c_stats['dirs']}", f"- C files: {c_stats['files']}",
+        f"- F exists: {f_stats['exists']}", f"- F dirs: {f_stats['dirs']}", f"- F files: {f_stats['files']}", "", "## Alerts",
+    ]
+    for a in alerts:
+        lines.append(f"- {a}")
+    for name in shared_names[:30]:
+        lines.append(f"  - {name}")
+    report.write_text("\n".join(lines), encoding="utf-8")
+    _write_json(report_json, {"type": "scan", "timestamp": ts, "c_root": str(c_root), "f_root": str(f_root), "c_stats": c_stats, "f_stats": f_stats, "shared_names": shared_names, "alerts": alerts, "report_md": str(report)})
+    return report
+
+
+def check_paths(root: Path = Path("F:/DevHub"), out_dir: Path | None = None, legacy_patterns: Iterable[str] | None = None) -> Path:
+    if legacy_patterns is None:
+        legacy_patterns = ("F:/03_Projetos", "F:\\03_Projetos", "C:/docker_pre_devhub", "C:\\docker_pre_devhub")
+    include_names = {"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml", ".env"}
+    hits: list[tuple[Path, int, str, str]] = []
+    if root.exists():
+        for file in root.rglob("*"):
+            if not file.is_file() or file.name not in include_names:
+                continue
+            try:
+                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
+            except OSError:
+                continue
+            for line_no, line in enumerate(content, start=1):
+                for pattern in legacy_patterns:
+                    if pattern in line:
+                        suggestion = line.replace(pattern, "F:/DevHub/Projetos/Ativos/03_Projetos")
+                        hits.append((file, line_no, line.strip(), suggestion.strip()))
+    if out_dir is None:
+        out_dir = root / "05_Logs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report = out_dir / f"devhub_check_paths_{ts}.md"
+    report_json = out_dir / f"devhub_check_paths_{ts}.json"
+    lines = ["# DevHub Legacy Paths Report", "", f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"- Root: {root}", f"- Hits: {len(hits)}", "", "## Findings"]
+    if not hits:
+        lines.append("- Nenhum path legado encontrado.")
+    else:
+        for file, line_no, line, suggestion in hits:
+            lines.append(f"- {file}:{line_no}")
+            lines.append(f"  - atual: {line}")
+            lines.append(f"  - sugestao: {suggestion}")
+    report.write_text("\n".join(lines), encoding="utf-8")
+    _write_json(report_json, {"type": "check-paths", "timestamp": ts, "root": str(root), "hits": [{"file": str(file), "line": line_no, "current": line, "suggestion": suggestion} for file, line_no, line, suggestion in hits], "hits_count": len(hits), "report_md": str(report)})
+    return report
+
+
+def cleanup_plan(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
+    if out_dir is None:
+        out_dir = f_root / "05_Logs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    candidates = _collect_cleanup_candidates(c_root, f_root)
     by_risk = {"baixo": 0, "medio": 0, "alto": 0}
     for c in candidates:
         by_risk[str(c["risk"])] += 1
-
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     report = out_dir / f"devhub_cleanup_plan_{ts}.md"
     report_json = out_dir / f"devhub_cleanup_plan_{ts}.json"
-
-    lines = [
-        "# DevHub Cleanup Plan",
-        "",
-        "- Modo: analise apenas (nenhuma remocao executada)",
-        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- C root: {c_root}",
-        f"- F root: {f_root}",
-        f"- Itens candidatos: {len(candidates)}",
-        f"- Risco baixo: {by_risk['baixo']}",
-        f"- Risco medio: {by_risk['medio']}",
-        f"- Risco alto: {by_risk['alto']}",
-        "",
-        "## Candidatos (top 100)",
-    ]
+    lines = ["# DevHub Cleanup Plan", "", "- Modo: analise apenas (nenhuma remocao executada)", f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"- C root: {c_root}", f"- F root: {f_root}", f"- Itens candidatos: {len(candidates)}", f"- Risco baixo: {by_risk['baixo']}", f"- Risco medio: {by_risk['medio']}", f"- Risco alto: {by_risk['alto']}", "", "## Candidatos (top 100)"]
     for item in candidates[:100]:
         lines.append(f"- [{item['risk']}] {item['path']} | {item['reason']}")
-
     report.write_text("\n".join(lines), encoding="utf-8")
-    _write_json(
-        report_json,
-        {
-            "type": "cleanup-plan",
-            "timestamp": ts,
-            "mode": "analysis_only",
-            "c_root": str(c_root),
-            "f_root": str(f_root),
-            "candidates_count": len(candidates),
-            "risk_summary": by_risk,
-            "candidates": candidates,
-            "report_md": str(report),
-        },
-    )
+    _write_json(report_json, {"type": "cleanup-plan", "timestamp": ts, "mode": "analysis_only", "c_root": str(c_root), "f_root": str(f_root), "candidates_count": len(candidates), "risk_summary": by_risk, "candidates": candidates, "report_md": str(report)})
+    return report
+
+
+def apply_cleanup(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None, risk: str = "baixo", apply: bool = False) -> Path:
+    if out_dir is None:
+        out_dir = f_root / "05_Logs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    candidates = _collect_cleanup_candidates(c_root, f_root)
+    allowed = [c for c in candidates if str(c["risk"]) == risk]
+    removed: list[str] = []
+    failed: list[dict[str, str]] = []
+    for c in allowed:
+        p = Path(str(c["path"]))
+        if not p.exists():
+            continue
+        if not apply:
+            removed.append(str(p))
+            continue
+        try:
+            if p.is_dir():
+                shutil.rmtree(p)
+            else:
+                p.unlink()
+            removed.append(str(p))
+        except OSError as exc:
+            failed.append({"path": str(p), "error": str(exc)})
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    mode = "apply" if apply else "dry-run"
+    report = out_dir / f"devhub_apply_cleanup_{ts}.md"
+    report_json = out_dir / f"devhub_apply_cleanup_{ts}.json"
+    lines = [
+        "# DevHub Apply Cleanup",
+        "",
+        f"- Mode: {mode}",
+        f"- Risk filter: {risk}",
+        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- Candidates in risk: {len(allowed)}",
+        f"- {'Would remove' if not apply else 'Removed'}: {len(removed)}",
+        f"- Failed: {len(failed)}",
+        "",
+        "## Items",
+    ]
+    for p in removed[:200]:
+        lines.append(f"- {p}")
+    if failed:
+        lines.append("")
+        lines.append("## Failures")
+        for f in failed:
+            lines.append(f"- {f['path']} | {f['error']}")
+    report.write_text("\n".join(lines), encoding="utf-8")
+    _write_json(report_json, {
+        "type": "apply-cleanup",
+        "timestamp": ts,
+        "mode": mode,
+        "risk": risk,
+        "apply": apply,
+        "c_root": str(c_root),
+        "f_root": str(f_root),
+        "candidates_in_risk": len(allowed),
+        "processed": removed,
+        "failed": failed,
+        "report_md": str(report),
+    })
     return report
 
 
@@ -303,41 +238,14 @@ def weekly_report(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevH
     if out_dir is None:
         out_dir = f_root / "05_Logs"
     out_dir.mkdir(parents=True, exist_ok=True)
-
     scan_report = scan_devhub(c_root, f_root, out_dir)
     paths_report = check_paths(f_root, out_dir)
-
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     report = out_dir / f"devhub_weekly_report_{ts}.md"
     report_json = out_dir / f"devhub_weekly_report_{ts}.json"
-    lines = [
-        "# DevHub Weekly Report",
-        "",
-        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- C root: {c_root}",
-        f"- F root: {f_root}",
-        "",
-        "## Outputs",
-        f"- Scan report: {scan_report}",
-        f"- Paths report: {paths_report}",
-        "",
-        "## Status",
-        "- Consolidado gerado com sucesso.",
-    ]
+    lines = ["# DevHub Weekly Report", "", f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"- C root: {c_root}", f"- F root: {f_root}", "", "## Outputs", f"- Scan report: {scan_report}", f"- Paths report: {paths_report}", "", "## Status", "- Consolidado gerado com sucesso."]
     report.write_text("\n".join(lines), encoding="utf-8")
-    _write_json(
-        report_json,
-        {
-            "type": "weekly-report",
-            "timestamp": ts,
-            "c_root": str(c_root),
-            "f_root": str(f_root),
-            "scan_report_md": str(scan_report),
-            "paths_report_md": str(paths_report),
-            "weekly_report_md": str(report),
-            "status": "ok",
-        },
-    )
+    _write_json(report_json, {"type": "weekly-report", "timestamp": ts, "c_root": str(c_root), "f_root": str(f_root), "scan_report_md": str(scan_report), "paths_report_md": str(paths_report), "weekly_report_md": str(report), "status": "ok"})
     return report
 
 
@@ -362,34 +270,37 @@ def main(argv: list[str] | None = None) -> int:
     p_cleanup.add_argument("--f-root", default="F:/DevHub")
     p_cleanup.add_argument("--out-dir", default=None)
 
+    p_apply = sub.add_parser("apply-cleanup", help="aplica limpeza por risco; dry-run por padrao")
+    p_apply.add_argument("--c-root", default="C:/DevHub")
+    p_apply.add_argument("--f-root", default="F:/DevHub")
+    p_apply.add_argument("--out-dir", default=None)
+    p_apply.add_argument("--risk", choices=["baixo", "medio", "alto"], default="baixo")
+    p_apply.add_argument("--apply", action="store_true")
+
     p_weekly = sub.add_parser("weekly-report", help="gera relatorio semanal consolidado")
     p_weekly.add_argument("--c-root", default="C:/DevHub")
     p_weekly.add_argument("--f-root", default="F:/DevHub")
     p_weekly.add_argument("--out-dir", default=None)
 
     args = parser.parse_args(argv)
-
     if args.command == "scan":
-        out_dir = Path(args.out_dir) if args.out_dir else None
-        report = scan_devhub(Path(args.c_root), Path(args.f_root), out_dir)
+        report = scan_devhub(Path(args.c_root), Path(args.f_root), Path(args.out_dir) if args.out_dir else None)
         print(f"Relatorio gerado: {report}")
         return 0
-
     if args.command == "check-paths":
-        out_dir = Path(args.out_dir) if args.out_dir else None
-        report = check_paths(Path(args.root), out_dir)
+        report = check_paths(Path(args.root), Path(args.out_dir) if args.out_dir else None)
         print(f"Relatorio gerado: {report}")
         return 0
-
     if args.command == "cleanup-plan":
-        out_dir = Path(args.out_dir) if args.out_dir else None
-        report = cleanup_plan(Path(args.c_root), Path(args.f_root), out_dir)
+        report = cleanup_plan(Path(args.c_root), Path(args.f_root), Path(args.out_dir) if args.out_dir else None)
         print(f"Relatorio gerado: {report}")
         return 0
-
+    if args.command == "apply-cleanup":
+        report = apply_cleanup(Path(args.c_root), Path(args.f_root), Path(args.out_dir) if args.out_dir else None, args.risk, args.apply)
+        print(f"Relatorio gerado: {report}")
+        return 0
     if args.command == "weekly-report":
-        out_dir = Path(args.out_dir) if args.out_dir else None
-        report = weekly_report(Path(args.c_root), Path(args.f_root), out_dir)
+        report = weekly_report(Path(args.c_root), Path(args.f_root), Path(args.out_dir) if args.out_dir else None)
         print(f"Relatorio gerado: {report}")
         return 0
 

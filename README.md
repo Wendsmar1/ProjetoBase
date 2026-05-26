@@ -13,7 +13,9 @@ Projeto base em Python com estrutura pronta para evoluir e publicar no GitHub.
 8. Simular limpeza risco baixo: `$env:PYTHONPATH="src"; python -m projetobase.main apply-cleanup --risk baixo`
 9. Aplicar limpeza real risco baixo: `$env:PYTHONPATH="src"; python -m projetobase.main apply-cleanup --risk baixo --apply`
 10. Relatorio semanal consolidado: `$env:PYTHONPATH="src"; python -m projetobase.main weekly-report`
-11. Rodar testes: `pytest -q`
+11. Dashboard HTML local: `$env:PYTHONPATH="src"; python -m projetobase.main dashboard`
+12. Rodar testes: `pytest -q`
 
 ## Saidas
 Comandos de relatorio geram `.md` + `.json`.
+O comando `dashboard` gera `dashboard_devhub.html`.

@@ -249,6 +249,70 @@ def weekly_report(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevH
     return report
 
 
+def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path | None = None) -> Path:
+    if out_html is None:
+        out_html = logs_dir / "dashboard_devhub.html"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    records: list[dict] = []
+    for p in sorted(logs_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+        try:
+            records.append(json.loads(p.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            continue
+
+    by_type: Counter[str] = Counter(str(r.get("type", "unknown")) for r in records)
+    latest = records[:20]
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    rows = []
+    for r in latest:
+        typ = str(r.get("type", "unknown"))
+        rts = str(r.get("timestamp", "-"))
+        status = str(r.get("status", "-"))
+        rows.append(f"<tr><td>{typ}</td><td>{rts}</td><td>{status}</td></tr>")
+
+    cards = "".join(
+        f"<div class='card'><h3>{k}</h3><p>{v}</p></div>"
+        for k, v in sorted(by_type.items())
+    ) or "<div class='card'><h3>Sem dados</h3><p>0</p></div>"
+
+    html = f"""<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DevHub Dashboard</title>
+  <style>
+    body {{ font-family: Segoe UI, Arial, sans-serif; margin: 24px; background: #f4f7fb; color: #1e293b; }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }}
+    .card {{ background: #fff; border: 1px solid #dbe3ef; border-radius: 10px; padding: 12px; }}
+    h1 {{ margin: 0 0 6px; }}
+    table {{ width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dbe3ef; }}
+    th, td {{ padding: 10px; border-bottom: 1px solid #e5eaf3; text-align: left; }}
+    th {{ background: #eef3fb; }}
+    .muted {{ color: #64748b; margin-bottom: 16px; }}
+  </style>
+</head>
+<body>
+  <h1>DevHub Dashboard</h1>
+  <div class="muted">Gerado em: {ts} | Logs: {logs_dir}</div>
+  <div class="grid">
+    <div class='card'><h3>Total JSON</h3><p>{len(records)}</p></div>
+    {cards}
+  </div>
+  <table>
+    <thead><tr><th>Tipo</th><th>Timestamp</th><th>Status</th></tr></thead>
+    <tbody>
+      {''.join(rows) if rows else '<tr><td colspan="3">Sem registros</td></tr>'}
+    </tbody>
+  </table>
+</body>
+</html>"""
+    out_html.write_text(html, encoding="utf-8")
+    return out_html
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="projetobase")
     sub = parser.add_subparsers(dest="command")
@@ -281,6 +345,9 @@ def main(argv: list[str] | None = None) -> int:
     p_weekly.add_argument("--c-root", default="C:/DevHub")
     p_weekly.add_argument("--f-root", default="F:/DevHub")
     p_weekly.add_argument("--out-dir", default=None)
+    p_dash = sub.add_parser("dashboard", help="gera dashboard HTML a partir dos JSONs de logs")
+    p_dash.add_argument("--logs-dir", default="F:/DevHub/05_Logs")
+    p_dash.add_argument("--out-html", default=None)
 
     args = parser.parse_args(argv)
     if args.command == "scan":
@@ -302,6 +369,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "weekly-report":
         report = weekly_report(Path(args.c_root), Path(args.f_root), Path(args.out_dir) if args.out_dir else None)
         print(f"Relatorio gerado: {report}")
+        return 0
+    if args.command == "dashboard":
+        out_html = Path(args.out_html) if args.out_html else None
+        html = build_dashboard(Path(args.logs_dir), out_html)
+        print(f"Dashboard gerado: {html}")
         return 0
 
     name = args.name if args.command == "run" else "mundo"

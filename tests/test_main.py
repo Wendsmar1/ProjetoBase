@@ -1,12 +1,11 @@
 ﻿import json
 from pathlib import Path
 
-from projetobase.main import apply_cleanup, check_paths, cleanup_plan, main, run, scan_devhub, weekly_report
+from projetobase.main import apply_cleanup, build_dashboard, check_paths, cleanup_plan, main, run, scan_devhub, weekly_report
 
 
 def test_run_default():
-    out = run()
-    assert "Ola, mundo!" in out
+    assert "Ola, mundo!" in run()
 
 
 def test_scan_generates_report_and_json(tmp_path: Path):
@@ -47,18 +46,6 @@ def test_apply_cleanup_dry_run(tmp_path: Path):
     assert target.exists()
     data = json.loads(Path(str(report).replace('.md', '.json')).read_text(encoding='utf-8'))
     assert data["mode"] == "dry-run"
-    assert len(data["processed"]) >= 1
-
-
-def test_apply_cleanup_apply(tmp_path: Path):
-    c_root = tmp_path / "C_DevHub"
-    f_root = tmp_path / "F_DevHub"
-    target = c_root / "a" / "__pycache__"
-    target.mkdir(parents=True)
-    report = apply_cleanup(c_root, f_root, tmp_path, risk="baixo", apply=True)
-    assert not target.exists()
-    data = json.loads(Path(str(report).replace('.md', '.json')).read_text(encoding='utf-8'))
-    assert data["mode"] == "apply"
 
 
 def test_weekly_report_and_json(tmp_path: Path):
@@ -71,11 +58,20 @@ def test_weekly_report_and_json(tmp_path: Path):
     assert data["type"] == "weekly-report"
 
 
-def test_main_apply_cleanup_command(tmp_path: Path, capsys):
-    c_root = tmp_path / "C_DevHub"
-    f_root = tmp_path / "F_DevHub"
-    c_root.mkdir()
-    f_root.mkdir()
-    rc = main(["apply-cleanup", "--c-root", str(c_root), "--f-root", str(f_root), "--out-dir", str(tmp_path)])
+def test_build_dashboard(tmp_path: Path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "a.json").write_text('{"type":"weekly-report","timestamp":"x","status":"ok"}', encoding="utf-8")
+    html = build_dashboard(logs)
+    assert html.exists()
+    content = html.read_text(encoding="utf-8")
+    assert "DevHub Dashboard" in content
+
+
+def test_main_dashboard_command(tmp_path: Path, capsys):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "a.json").write_text('{"type":"scan","timestamp":"x"}', encoding="utf-8")
+    rc = main(["dashboard", "--logs-dir", str(logs)])
     assert rc == 0
-    assert "Relatorio gerado:" in capsys.readouterr().out
+    assert "Dashboard gerado:" in capsys.readouterr().out

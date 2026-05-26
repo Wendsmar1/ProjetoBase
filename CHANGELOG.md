@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## v0.4.1 - 2026-05-25
+
+### Improved
+- Dashboard HTML com redesign visual (cores, gradiente, cards e tabela refinada).
+- Badges coloridas para status na tabela de execucoes.
+- Bloco de alertas com destaque visual.
+
 ## v0.4.0 - 2026-05-25
 
 ### Added

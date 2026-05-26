@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import argparse
+import csv
 import json
 import shutil
 from collections import Counter
@@ -282,12 +283,14 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
             alerts.append(f"Crescimento de candidatos de limpeza: {prev} -> {curr}")
 
     rows = []
+    runs_rows: list[list[str]] = []
     for r in latest:
         typ = str(r.get("type", "unknown"))
         rts = str(r.get("timestamp", "-"))
         status = str(r.get("status", "-"))
         badge_class = "badge badge-ok" if status.lower() == "ok" else "badge badge-warn"
         rows.append(f"<tr><td>{typ}</td><td>{rts}</td><td><span class='{badge_class}'>{status}</span></td></tr>")
+        runs_rows.append([typ, rts, status])
 
     cards = "".join(
         f"<div class='card'><h3>{k}</h3><p>{v}</p></div>"
@@ -403,6 +406,22 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
 </body>
 </html>"""
     out_html.write_text(html, encoding="utf-8")
+
+    summary_csv = logs_dir / "dashboard_devhub_summary.csv"
+    with summary_csv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["metric", "value"])
+        w.writerow(["total_json", len(records)])
+        for k, v in sorted(by_type.items()):
+            w.writerow([f"type_{k}", v])
+        w.writerow(["alerts_count", len(alerts)])
+
+    runs_csv = logs_dir / "dashboard_devhub_runs.csv"
+    with runs_csv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["type", "timestamp", "status"])
+        w.writerows(runs_rows)
+
     return out_html
 
 

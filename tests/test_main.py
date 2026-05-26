@@ -66,6 +66,8 @@ def test_build_dashboard(tmp_path: Path):
     assert html.exists()
     content = html.read_text(encoding="utf-8")
     assert "DevHub Dashboard" in content
+    assert (logs / "dashboard_devhub_summary.csv").exists()
+    assert (logs / "dashboard_devhub_runs.csv").exists()
 
 
 def test_build_dashboard_alerts(tmp_path: Path):

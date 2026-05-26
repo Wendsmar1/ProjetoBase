@@ -286,7 +286,8 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
         typ = str(r.get("type", "unknown"))
         rts = str(r.get("timestamp", "-"))
         status = str(r.get("status", "-"))
-        rows.append(f"<tr><td>{typ}</td><td>{rts}</td><td>{status}</td></tr>")
+        badge_class = "badge badge-ok" if status.lower() == "ok" else "badge badge-warn"
+        rows.append(f"<tr><td>{typ}</td><td>{rts}</td><td><span class='{badge_class}'>{status}</span></td></tr>")
 
     cards = "".join(
         f"<div class='card'><h3>{k}</h3><p>{v}</p></div>"
@@ -300,26 +301,96 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DevHub Dashboard</title>
   <style>
-    body {{ font-family: Segoe UI, Arial, sans-serif; margin: 24px; background: #f4f7fb; color: #1e293b; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }}
-    .card {{ background: #fff; border: 1px solid #dbe3ef; border-radius: 10px; padding: 12px; }}
-    h1 {{ margin: 0 0 6px; }}
-    table {{ width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dbe3ef; }}
-    th, td {{ padding: 10px; border-bottom: 1px solid #e5eaf3; text-align: left; }}
-    th {{ background: #eef3fb; }}
-    .muted {{ color: #64748b; margin-bottom: 16px; }}
+    :root {{
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #dbe7f3;
+      --accent: #0ea5e9;
+      --accent-soft: #e0f2fe;
+      --ok: #16a34a;
+      --warn: #ea580c;
+      --shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }}
+    body {{
+      font-family: "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+      margin: 0;
+      background: radial-gradient(circle at top right, #e0f2fe 0%, var(--bg) 45%);
+      color: var(--text);
+    }}
+    .wrap {{
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px 24px;
+    }}
+    .hero {{
+      background: linear-gradient(135deg, #0ea5e9, #0369a1);
+      color: #fff;
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }}
+    .hero h1 {{ margin: 0 0 6px; font-size: 1.5rem; }}
+    .muted {{ opacity: 0.92; font-size: 0.92rem; }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }}
+    .card {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+    }}
+    .card h3 {{ margin: 0; font-size: 0.92rem; color: var(--muted); font-weight: 700; }}
+    .card p {{ margin: 8px 0 0; font-size: 1.45rem; font-weight: 700; color: #0b3b5a; }}
+    h2 {{ margin: 16px 0 10px; }}
+    .alerts {{ background: #fff7ed; border-color: #fed7aa; }}
+    .alert-item {{ margin: 0 0 6px; color: #9a3412; font-weight: 600; }}
+    .ok {{ color: var(--ok); font-weight: 700; }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }}
+    th, td {{ padding: 10px; border-bottom: 1px solid #edf2f7; text-align: left; }}
+    th {{ background: var(--accent-soft); color: #0c4a6e; }}
+    tbody tr:hover {{ background: #f8fafc; }}
+    .badge {{
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: #e2e8f0;
+      color: #334155;
+    }}
+    .badge-ok {{ background: #dcfce7; color: #166534; }}
+    .badge-warn {{ background: #ffedd5; color: #9a3412; }}
   </style>
 </head>
 <body>
-  <h1>DevHub Dashboard</h1>
-  <div class="muted">Gerado em: {ts} | Logs: {logs_dir}</div>
+  <div class="wrap">
+  <div class="hero">
+    <h1>DevHub Dashboard</h1>
+    <div class="muted">Gerado em: {ts} | Logs: {logs_dir}</div>
+  </div>
   <div class="grid">
     <div class='card'><h3>Total JSON</h3><p>{len(records)}</p></div>
     {cards}
   </div>
   <h2>Alertas</h2>
-  <div class="card">
-    {''.join(f"<p>• {a}</p>" for a in alerts) if alerts else '<p>Sem alertas críticos.</p>'}
+  <div class="card alerts">
+    {''.join(f"<p class='alert-item'>• {a}</p>" for a in alerts) if alerts else '<p class="ok">Sem alertas críticos.</p>'}
   </div>
   <br />
   <table>
@@ -328,6 +399,7 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
       {''.join(rows) if rows else '<tr><td colspan="3">Sem registros</td></tr>'}
     </tbody>
   </table>
+  </div>
 </body>
 </html>"""
     out_html.write_text(html, encoding="utf-8")

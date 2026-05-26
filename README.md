@@ -13,7 +13,7 @@ Projeto base em Python com estrutura pronta para evoluir e publicar no GitHub.
 8. Simular limpeza risco baixo: `$env:PYTHONPATH="src"; python -m projetobase.main apply-cleanup --risk baixo`
 9. Aplicar limpeza real risco baixo: `$env:PYTHONPATH="src"; python -m projetobase.main apply-cleanup --risk baixo --apply`
 10. Relatorio semanal consolidado: `$env:PYTHONPATH="src"; python -m projetobase.main weekly-report`
-11. Dashboard HTML local: `$env:PYTHONPATH="src"; python -m projetobase.main dashboard`
+11. Dashboard HTML local: `$env:PYTHONPATH="src"; python -m projetobase.main dashboard`\n12. Abrir dashboard automaticamente: `$env:PYTHONPATH="src"; python -m projetobase.main dashboard --open`
 12. Rodar testes: `pytest -q`
 
 ## Saidas
@@ -23,4 +23,5 @@ O comando `dashboard` gera `dashboard_devhub.html`, `dashboard_devhub_summary.cs
 
 ## Alertas no Dashboard
 - Paths legados detectados em check-paths`n- Status anormal no weekly-report`n- Crescimento de candidatos no cleanup-plan`n
+
 

@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import os
 import shutil
 from collections import Counter
 from datetime import datetime
@@ -250,7 +251,7 @@ def weekly_report(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevH
     return report
 
 
-def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path | None = None) -> Path:
+def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path | None = None, open_browser: bool = False) -> Path:
     if out_html is None:
         out_html = logs_dir / "dashboard_devhub.html"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -422,6 +423,9 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
         w.writerow(["type", "timestamp", "status"])
         w.writerows(runs_rows)
 
+    if open_browser:
+        os.startfile(str(out_html))  # nosec - intentional local file open for UX
+
     return out_html
 
 
@@ -460,6 +464,7 @@ def main(argv: list[str] | None = None) -> int:
     p_dash = sub.add_parser("dashboard", help="gera dashboard HTML a partir dos JSONs de logs")
     p_dash.add_argument("--logs-dir", default="F:/DevHub/05_Logs")
     p_dash.add_argument("--out-html", default=None)
+    p_dash.add_argument("--open", action="store_true", help="abre o dashboard no navegador apos gerar")
 
     args = parser.parse_args(argv)
     if args.command == "scan":
@@ -484,7 +489,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "dashboard":
         out_html = Path(args.out_html) if args.out_html else None
-        html = build_dashboard(Path(args.logs_dir), out_html)
+        html = build_dashboard(Path(args.logs_dir), out_html, args.open)
         print(f"Dashboard gerado: {html}")
         return 0
 

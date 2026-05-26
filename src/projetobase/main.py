@@ -152,6 +152,34 @@ def check_paths(
     return report
 
 
+def weekly_report(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
+    if out_dir is None:
+        out_dir = f_root / "05_Logs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    scan_report = scan_devhub(c_root, f_root, out_dir)
+    paths_report = check_paths(f_root, out_dir)
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report = out_dir / f"devhub_weekly_report_{ts}.md"
+    lines = [
+        "# DevHub Weekly Report",
+        "",
+        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- C root: {c_root}",
+        f"- F root: {f_root}",
+        "",
+        "## Outputs",
+        f"- Scan report: {scan_report}",
+        f"- Paths report: {paths_report}",
+        "",
+        "## Status",
+        "- Consolidado gerado com sucesso.",
+    ]
+    report.write_text("\n".join(lines), encoding="utf-8")
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="projetobase")
     sub = parser.add_subparsers(dest="command")
@@ -168,6 +196,11 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument("--root", default="F:/DevHub")
     p_check.add_argument("--out-dir", default=None)
 
+    p_weekly = sub.add_parser("weekly-report", help="gera relatorio semanal consolidado")
+    p_weekly.add_argument("--c-root", default="C:/DevHub")
+    p_weekly.add_argument("--f-root", default="F:/DevHub")
+    p_weekly.add_argument("--out-dir", default=None)
+
     args = parser.parse_args(argv)
 
     if args.command == "scan":
@@ -179,6 +212,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "check-paths":
         out_dir = Path(args.out_dir) if args.out_dir else None
         report = check_paths(Path(args.root), out_dir)
+        print(f"Relatorio gerado: {report}")
+        return 0
+
+    if args.command == "weekly-report":
+        out_dir = Path(args.out_dir) if args.out_dir else None
+        report = weekly_report(Path(args.c_root), Path(args.f_root), out_dir)
         print(f"Relatorio gerado: {report}")
         return 0
 

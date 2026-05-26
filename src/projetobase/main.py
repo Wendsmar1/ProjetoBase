@@ -196,6 +196,109 @@ def check_paths(
     return report
 
 
+def cleanup_plan(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
+    if out_dir is None:
+        out_dir = f_root / "05_Logs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    roots = [c_root, f_root]
+    candidates: list[dict[str, str | int]] = []
+    dir_rules = {
+        "__pycache__": ("baixo", "Remover cache Python"),
+        ".pytest_cache": ("baixo", "Remover cache de testes"),
+        ".mypy_cache": ("baixo", "Remover cache de tipagem"),
+        ".ruff_cache": ("baixo", "Remover cache de lint"),
+    }
+    file_suffix_rules = {
+        ".tmp": ("baixo", "Arquivo temporario"),
+        ".bak": ("medio", "Backup antigo; revisar antes"),
+        ".old": ("medio", "Arquivo legado; revisar antes"),
+        ".log": ("baixo", "Log pode ser arquivado/removido"),
+    }
+
+    for root in roots:
+        if not root.exists():
+            continue
+        for p in root.rglob("*"):
+            if p.is_dir() and p.name in dir_rules:
+                risk, reason = dir_rules[p.name]
+                candidates.append(
+                    {
+                        "path": str(p),
+                        "kind": "dir",
+                        "risk": risk,
+                        "reason": reason,
+                        "suggested_action": "review_then_remove",
+                    }
+                )
+            elif p.is_file():
+                if p.name.endswith("~"):
+                    candidates.append(
+                        {
+                            "path": str(p),
+                            "kind": "file",
+                            "risk": "baixo",
+                            "reason": "Arquivo temporario de editor",
+                            "suggested_action": "review_then_remove",
+                        }
+                    )
+                    continue
+                for suf, (risk, reason) in file_suffix_rules.items():
+                    if p.suffix.lower() == suf:
+                        candidates.append(
+                            {
+                                "path": str(p),
+                                "kind": "file",
+                                "risk": risk,
+                                "reason": reason,
+                                "suggested_action": "review_then_remove",
+                            }
+                        )
+                        break
+
+    by_risk = {"baixo": 0, "medio": 0, "alto": 0}
+    for c in candidates:
+        by_risk[str(c["risk"])] += 1
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report = out_dir / f"devhub_cleanup_plan_{ts}.md"
+    report_json = out_dir / f"devhub_cleanup_plan_{ts}.json"
+
+    lines = [
+        "# DevHub Cleanup Plan",
+        "",
+        "- Modo: analise apenas (nenhuma remocao executada)",
+        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- C root: {c_root}",
+        f"- F root: {f_root}",
+        f"- Itens candidatos: {len(candidates)}",
+        f"- Risco baixo: {by_risk['baixo']}",
+        f"- Risco medio: {by_risk['medio']}",
+        f"- Risco alto: {by_risk['alto']}",
+        "",
+        "## Candidatos (top 100)",
+    ]
+    for item in candidates[:100]:
+        lines.append(f"- [{item['risk']}] {item['path']} | {item['reason']}")
+
+    report.write_text("\n".join(lines), encoding="utf-8")
+    _write_json(
+        report_json,
+        {
+            "type": "cleanup-plan",
+            "timestamp": ts,
+            "mode": "analysis_only",
+            "c_root": str(c_root),
+            "f_root": str(f_root),
+            "candidates_count": len(candidates),
+            "risk_summary": by_risk,
+            "candidates": candidates,
+            "report_md": str(report),
+        },
+    )
+    return report
+
+
 def weekly_report(c_root: Path = Path("C:/DevHub"), f_root: Path = Path("F:/DevHub"), out_dir: Path | None = None) -> Path:
     if out_dir is None:
         out_dir = f_root / "05_Logs"
@@ -254,6 +357,11 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument("--root", default="F:/DevHub")
     p_check.add_argument("--out-dir", default=None)
 
+    p_cleanup = sub.add_parser("cleanup-plan", help="gera plano de limpeza seguro sem apagar nada")
+    p_cleanup.add_argument("--c-root", default="C:/DevHub")
+    p_cleanup.add_argument("--f-root", default="F:/DevHub")
+    p_cleanup.add_argument("--out-dir", default=None)
+
     p_weekly = sub.add_parser("weekly-report", help="gera relatorio semanal consolidado")
     p_weekly.add_argument("--c-root", default="C:/DevHub")
     p_weekly.add_argument("--f-root", default="F:/DevHub")
@@ -270,6 +378,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "check-paths":
         out_dir = Path(args.out_dir) if args.out_dir else None
         report = check_paths(Path(args.root), out_dir)
+        print(f"Relatorio gerado: {report}")
+        return 0
+
+    if args.command == "cleanup-plan":
+        out_dir = Path(args.out_dir) if args.out_dir else None
+        report = cleanup_plan(Path(args.c_root), Path(args.f_root), out_dir)
         print(f"Relatorio gerado: {report}")
         return 0
 

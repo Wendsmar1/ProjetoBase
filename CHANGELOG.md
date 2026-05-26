@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## v0.3.0 - 2026-05-25
+
+### Added
+- Saida `.json` para `scan`, `check-paths` e `weekly-report`.
+- Comando `cleanup-plan` com classificacao de risco e plano sem remocao.
+- Comando `apply-cleanup` com `dry-run` por padrao, filtro por risco e `--apply` para execucao real.
+
+### Improved
+- README atualizado com fluxo operacional completo.
+- Cobertura de testes ampliada para todos os comandos principais e artefatos JSON.
+
 ## v0.2.0 - 2026-05-25
 
 ### Added

@@ -265,6 +265,22 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
     latest = records[:20]
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    alerts: list[str] = []
+    latest_check = next((r for r in records if str(r.get("type")) == "check-paths"), None)
+    if latest_check and int(latest_check.get("hits_count", 0)) > 0:
+        alerts.append(f"Paths legados detectados: {latest_check.get('hits_count')}")
+
+    latest_weekly = next((r for r in records if str(r.get("type")) == "weekly-report"), None)
+    if latest_weekly and str(latest_weekly.get("status", "")).lower() != "ok":
+        alerts.append("Weekly report com status diferente de ok.")
+
+    cleanup_plans = [r for r in records if str(r.get("type")) == "cleanup-plan"][:2]
+    if len(cleanup_plans) == 2:
+        curr = int(cleanup_plans[0].get("candidates_count", 0))
+        prev = int(cleanup_plans[1].get("candidates_count", 0))
+        if prev > 0 and curr > int(prev * 1.2):
+            alerts.append(f"Crescimento de candidatos de limpeza: {prev} -> {curr}")
+
     rows = []
     for r in latest:
         typ = str(r.get("type", "unknown"))
@@ -301,6 +317,11 @@ def build_dashboard(logs_dir: Path = Path("F:/DevHub/05_Logs"), out_html: Path |
     <div class='card'><h3>Total JSON</h3><p>{len(records)}</p></div>
     {cards}
   </div>
+  <h2>Alertas</h2>
+  <div class="card">
+    {''.join(f"<p>• {a}</p>" for a in alerts) if alerts else '<p>Sem alertas críticos.</p>'}
+  </div>
+  <br />
   <table>
     <thead><tr><th>Tipo</th><th>Timestamp</th><th>Status</th></tr></thead>
     <tbody>

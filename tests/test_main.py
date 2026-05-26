@@ -68,6 +68,16 @@ def test_build_dashboard(tmp_path: Path):
     assert "DevHub Dashboard" in content
 
 
+def test_build_dashboard_alerts(tmp_path: Path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "check.json").write_text('{"type":"check-paths","hits_count":2}', encoding="utf-8")
+    html = build_dashboard(logs)
+    content = html.read_text(encoding="utf-8")
+    assert "Alertas" in content
+    assert "Paths legados detectados" in content
+
+
 def test_main_dashboard_command(tmp_path: Path, capsys):
     logs = tmp_path / "logs"
     logs.mkdir()

@@ -19,3 +19,7 @@ Projeto base em Python com estrutura pronta para evoluir e publicar no GitHub.
 ## Saidas
 Comandos de relatorio geram `.md` + `.json`.
 O comando `dashboard` gera `dashboard_devhub.html`.
+
+
+## Alertas no Dashboard
+- Paths legados detectados em check-paths`n- Status anormal no weekly-report`n- Crescimento de candidatos no cleanup-plan`n

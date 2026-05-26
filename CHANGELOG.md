@@ -1,5 +1,19 @@
 ﻿# Changelog
 
+## v0.5.0 - 2026-05-25
+
+### Added
+- Exportacao CSV no comando `dashboard`:
+  - `dashboard_devhub_summary.csv`
+  - `dashboard_devhub_runs.csv`
+
+### Improved
+- Dashboard com visual aprimorado (cores, cards, badges e tabela refinada).
+- Bloco de alertas automaticos no dashboard:
+  - paths legados detectados,
+  - status anormal em `weekly-report`,
+  - crescimento de candidatos em `cleanup-plan`.
+
 ## v0.4.1 - 2026-05-25
 
 ### Improved

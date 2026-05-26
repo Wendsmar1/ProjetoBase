@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## v0.5.1 - 2026-05-25
+
+### Added
+- Opcao `--open` no comando `dashboard` para abrir automaticamente o HTML no navegador apos gerar.
+
 ## v0.5.0 - 2026-05-25
 
 ### Added

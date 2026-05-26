@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## v0.4.0 - 2026-05-25
+
+### Added
+- Comando `dashboard` para gerar painel HTML local a partir dos JSONs em `F:/DevHub/05_Logs`.
+- Script de automacao `C:/DevHub/04_Scripts/run_projetobase_dashboard.ps1`.
+- Tarefa agendada `DevHub Dashboard Refresh` (sexta 09:05).
+
+### Improved
+- README atualizado com fluxo completo incluindo dashboard.
+- Testes ampliados para cobrir geracao do dashboard.
+
 ## v0.3.0 - 2026-05-25
 
 ### Added
